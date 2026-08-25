@@ -5,6 +5,7 @@ using OrdinaryDiffEq
 using Trixi
 using TrixiAtmo
 using TrixiManifolds
+using OrdinaryDiffEqLowStorageRK: CarpenterKennedy2N54
 
 const major_radius = 1.0
 const minor_radius = 0.25

@@ -1,3 +1,5 @@
 include("metrics_2d.jl")
 include("torus/mesh.jl")
 include("torus/metrics.jl")
+include("gmsh_surface/mesh.jl")
+include("gmsh_surface/metrics.jl")

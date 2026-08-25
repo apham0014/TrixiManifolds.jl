@@ -17,11 +17,14 @@ module TrixiManifolds
 using Trixi
 using TrixiAtmo
 using LinearAlgebra: det, inv, opnorm
+using StaticArrays: SVector
 
 export examples_dir
 export CovariantLinearSystem2D
 export flux_nonconservative
 export P4estMeshTorus2D, MetricTermsCovariantTorus, torus2cartesian
+export P4estMeshGmshSurface
+
 
 const examples_dir = joinpath(@__DIR__, "..", "examples")
 
