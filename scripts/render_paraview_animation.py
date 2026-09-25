@@ -12,6 +12,15 @@ Usage examples:
     --input "examples/output/advection_cubed_sphere/solution_*.vtu" \
     --output "examples/output/advection_cubed_sphere/plot_*.png" \
     --field h
+
+  python scripts/render_paraview_animation.py \
+    --input "examples/output/advection_meshed_sphere/solution_*.vtu" \
+    --output examples/output/advection_meshed_sphere/animation_plot.mp4 \
+    --field u1 \
+    --legend-variable '$p$' \
+    --hide-orientation-axes \
+    --color-min -0.4 \
+    --color-max 0.4
 """
 
 from __future__ import annotations

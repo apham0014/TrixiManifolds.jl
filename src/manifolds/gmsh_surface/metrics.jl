@@ -50,19 +50,22 @@ For the current `P4estMeshGmshSurface` converter:
 `metrics_2d.jl` differentiates the returned surface map.
 """
 @inline function face_lagrange_basis(x, nodes)
-    L = map(eachindex(nodes)) do i
+    n = length(nodes)
+    L = Vector{typeof(x)}(undef, n)
+
+    for i in 1:n
         Li = one(x)
 
-        for j in eachindex(nodes)
+        for j in 1:n
             if i != j
                 Li *= (x - nodes[j]) / (nodes[i] - nodes[j])
             end
         end
 
-        Li
+        L[i] = Li
     end
 
-    return SVector(L)
+    return SVector{n, typeof(x)}(L)
 end
 
 
@@ -152,8 +155,7 @@ function calc_face_element_map_parameters(mesh::P4estMesh{2, 3},
 
     for tree_id in eachindex(trees)
         tree = trees[tree_id]
-        quadrants =
-            Trixi.unsafe_wrap_sc(Trixi.p4est_quadrant_t, tree.quadrants)
+        quadrants = Trixi.unsafe_wrap_sc(Trixi.p4est_quadrant_t, tree.quadrants)
         tree_offset = Int(tree.quadrants_offset)
 
         for local_quadrant_id in eachindex(quadrants)

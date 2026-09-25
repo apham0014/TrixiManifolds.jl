@@ -396,6 +396,36 @@ end
     return nothing
 end
 
+@inline function init_covariant_geometry_aux!(auxiliary_variables,
+                                              mesh::P4estMesh{2, 3},
+                                              equations::CovariantLinearSystem2D,
+                                              dg,
+                                              elements,
+                                              metric_terms::MetricTermsCovariantFace,
+                                              bottom_topography)
+    invoke(
+        TrixiAtmo.init_auxiliary_node_variables!,
+        Tuple{
+            Any,
+            P4estMesh{2, 3},
+            TrixiAtmo.AbstractCovariantEquations{2, 3},
+            Any,
+            Any,
+            MetricTermsCovariantFace,
+            Any
+        },
+        auxiliary_variables,
+        mesh,
+        equations,
+        dg,
+        elements,
+        metric_terms,
+        bottom_topography
+    )
+
+    return nothing
+end
+
 # Initialize geometry first, then store system coefficients A and optional B
 @inline function init_auxiliary_node_variables_linear_system!(auxiliary_variables,
                                                               mesh::P4estMesh{2, 3},
@@ -435,4 +465,22 @@ function TrixiAtmo.init_auxiliary_node_variables!(auxiliary_variables,
     return init_auxiliary_node_variables_linear_system!(auxiliary_variables, mesh,
                                                         equations, dg, elements,
                                                         metric_terms, bottom_topography)
+end
+
+function TrixiAtmo.init_auxiliary_node_variables!(auxiliary_variables,
+                                                  mesh::P4estMesh{2, 3},
+                                                  equations::CovariantLinearSystem2D,
+                                                  dg,
+                                                  elements,
+                                                  metric_terms::MetricTermsCovariantFace,
+                                                  bottom_topography)
+    return init_auxiliary_node_variables_linear_system!(
+        auxiliary_variables,
+        mesh,
+        equations,
+        dg,
+        elements,
+        metric_terms,
+        bottom_topography
+    )
 end

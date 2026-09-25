@@ -1,7 +1,7 @@
 ###############################################################################
 # Sphere advection test (covariant form)
 #
-# This elixir constructs a periodic cubed-sphere mesh, runs covariant linear
+# This elixir constructs a sphere mesh, runs covariant linear
 # advection with a Cartesian Gaussian initial condition, and
 # converts output to VTK.
 ###############################################################################
@@ -12,9 +12,9 @@ using LinearAlgebra: cross
 using TrixiManifolds
 
 # Sphere geometry and mesh resolution
-const sphere_radius = 1.0
-const cells_per_face_dim = 8
-const output_directory = normpath(@__DIR__, "output", "advection_cubed_sphere")
+# const sphere_radius = 1.0
+# const cells_per_face_dim = 8
+const output_directory = normpath(@__DIR__, "output", "advection_meshed_sphere")
 const rotation_period = 1.0
 const num_revolutions = 4
 const final_time = num_revolutions * rotation_period
@@ -73,17 +73,14 @@ equations = CovariantLinearSystem2D(1, advection_coefficient_matrix,
                                     global_coordinate_system = GlobalCartesianCoordinates())
 
 # DGSEM solver
-solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs,
+solver = DGSEM(polydeg = 2, surface_flux = flux_lax_friedrichs,
                volume_integral = VolumeIntegralWeakForm())
 
-# Create periodic cubed-sphere mesh in 3D
-mesh = P4estMeshCubedSphere2D(cells_per_face_dim, sphere_radius,
-                              polydeg = Trixi.polydeg(solver),
-                              element_local_mapping = true)
+# Create sphere mesh in 3D
+mesh = P4estMeshGmshSurface("examples/sphere.inp")
 
-# Set up semidiscretization and run window
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_transport, solver,
-                                    boundary_conditions = boundary_condition_periodic)
+                                    boundary_conditions = boundary_condition_periodic, metric_terms = TrixiManifolds.MetricTermsCovariantFace())
 ode = semidiscretize(semi, (0.0, final_time))
 
 summary_callback = SummaryCallback()

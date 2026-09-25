@@ -29,8 +29,7 @@ function P4estMeshGmshSurface(meshfile::AbstractString;
     endswith(lowercase(meshfile), ".inp") ||
         throw(ArgumentError("P4estMeshGmshSurface currently requires an Abaqus .inp file"))
 
-    # This first implementation is intentionally serial. Trixi's standard
-    # importer has some additional MPI broadcasting logic.
+    # This first implementation is serial.
     Trixi.mpi_isparallel() &&
         error("P4estMeshGmshSurface currently supports serial execution only")
 
@@ -125,8 +124,7 @@ function P4estMeshGmshSurface(meshfile::AbstractString;
     nnodes = length(nodes)
 
 
-    # We will map each reference point to physical coordinate in 3D, as
-    # opposed to a P4estMesh{2,2} which requires (2, nnodes, nnodes, ntrees)
+    # Each tree (original quadrilateral patch) is defined by (nnodes x nnodes) 3d coordinates.
     tree_node_coordinates =
         Array{RealT, 4}(
             undef,
@@ -478,3 +476,127 @@ function _gmsh_surface_tree_coordinates!(
     return nothing
 end
 
+
+function validate_surface_edges(meshfile::AbstractString)
+    edge_counts = Dict{Tuple, Int}()
+    element_count = 0
+    in_surface_section = false
+    element_order = 0
+
+    for raw_line in eachline(meshfile)
+        line = strip(raw_line)
+
+        isempty(line) && continue
+        startswith(line, "**") && continue
+
+        if startswith(uppercase(line), "*ELEMENT")
+            match_type = match(
+                r"(?i)\*ELEMENT,\s*TYPE=([^,\s]+)",
+                line,
+            )
+
+            in_surface_section = false
+            element_order = 0
+
+            if match_type !== nothing
+                element_type = uppercase(match_type.captures[1])
+
+                if startswith(element_type, "M3D9") ||
+                   startswith(element_type, "S8")
+                    in_surface_section = true
+                    element_order = 2
+                elseif startswith(element_type, "CPS4") ||
+                       startswith(element_type, "M3D4") ||
+                       startswith(element_type, "S4")
+                    in_surface_section = true
+                    element_order = 1
+                end
+            end
+
+            continue
+        end
+
+        if startswith(line, "*")
+            in_surface_section = false
+            continue
+        end
+
+        in_surface_section || continue
+
+        fields = strip.(split(line, ','))
+        filter!(!isempty, fields)
+
+        # Element ID plus at least four node IDs
+        length(fields) >= 5 ||
+            error("Invalid surface element line:\n$line")
+
+        node_ids = parse.(Int, fields[2:end])
+        element_count += 1
+
+        if element_order == 1
+            corners = node_ids[1:4]
+
+            edges = (
+                (corners[1], corners[2]),
+                (corners[2], corners[3]),
+                (corners[3], corners[4]),
+                (corners[4], corners[1]),
+            )
+
+            for edge in edges
+                key = Tuple(sort(collect(edge)))
+                edge_counts[key] = get(edge_counts, key, 0) + 1
+            end
+        else
+            # Abaqus/Gmsh M3D9 ordering:
+            #
+            # corners: 1, 2, 3, 4
+            # midsides: 5, 6, 7, 8
+            corners = node_ids[1:4]
+            midsides = node_ids[5:8]
+
+            edges = (
+                (corners[1], corners[2], midsides[1]),
+                (corners[2], corners[3], midsides[2]),
+                (corners[3], corners[4], midsides[3]),
+                (corners[4], corners[1], midsides[4]),
+            )
+
+            for edge in edges
+                # Reverse orientation does not change the edge identity.
+                key = (
+                    min(edge[1], edge[2]),
+                    max(edge[1], edge[2]),
+                    edge[3],
+                )
+                edge_counts[key] = get(edge_counts, key, 0) + 1
+            end
+        end
+    end
+
+    external_edges = [
+        edge for (edge, count) in edge_counts if count == 1
+    ]
+
+    nonmanifold_edges = [
+        (edge, count)
+        for (edge, count) in edge_counts
+        if count > 2
+    ]
+
+    result = (
+        elements = element_count,
+        edges = length(edge_counts),
+        external_edges = external_edges,
+        nonmanifold_edges = nonmanifold_edges,
+        closed = isempty(external_edges) && isempty(nonmanifold_edges),
+    )
+
+    println("Surface elements: ", result.elements)
+    println("Unique surface edges: ", result.edges)
+    println("External edges: ", length(result.external_edges))
+    println("Non-manifold edges: ", length(result.nonmanifold_edges))
+    println("Closed surface topology: ", result.closed)
+
+    return result
+end
